@@ -1,0 +1,947 @@
+
+// Doing Mapping to blogs_fixed4 index with some settings:
+// For example we 
+PUT blogs_fixed4
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "content_analyzer": {
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase"
+          ],
+          "char_filter": [
+            "html_strip"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "_meta": {
+      "created_by": "Elastic Student"
+    },
+    "properties": {
+      "authors": {
+        "properties": {
+          "company": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "first_name": {
+            "type": "keyword"
+          },
+          "full_name": {
+            "type": "text"
+          },
+          "job_title": {
+            "type": "text",
+            "fields": {
+              "keyword": {
+                "type": "keyword",
+                "ignore_above": 256
+              }
+            }
+          },
+          "last_name": {
+            "type": "keyword"
+          },
+          "uid": {
+            "enabled": false
+          }
+        }
+      },
+      "category": {
+        "type": "keyword"
+      },
+      "content": {
+        "type": "text"
+      },
+      "locale": {
+        "type": "keyword"
+      },
+      "publish_date": {
+        "type": "date",
+        "format": "iso8601"
+      },
+      "search_tags": {
+        "type": "keyword",
+        "doc_values": false
+      },
+      "tags": {
+        "properties": {
+          "elastic_stack": {
+            "type": "keyword",
+            "copy_to": "search_tags"
+          },
+          "industry": {
+            "type": "keyword",
+            "copy_to": "search_tags"
+          },
+          "level": {
+            "type": "keyword",
+            "copy_to": "search_tags"
+          },
+          "product": {
+            "type": "keyword",
+            "copy_to": "search_tags"
+          },
+          "tags": {
+            "type": "keyword",
+            "copy_to": "search_tags"
+          },
+          "topic": {
+            "type": "keyword",
+            "copy_to": "search_tags"
+          },
+          "use_case": {
+            "type": "keyword",
+            "copy_to": "search_tags"
+          },
+          "use_cases": {
+            "type": "keyword",
+            "copy_to": "search_tags"
+          }
+        }
+      },
+      "title": {
+        "type": "text"
+      },
+      "url": {
+        "type": "keyword"
+      }
+    }
+  }
+}
+
+POST _reindex
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "blogs_fixed4"
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "query": {
+    "match": {
+      "search_tags": "logstash"
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_job_titles": {
+      "terms": {
+        "field": "search_tags",
+        "size": 10
+      }
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "size": 50,
+  "_source": false,
+  "fields": [
+    "title"
+  ], 
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "query": {
+    "match": {
+      "content": {
+        "query": "open source",
+        "operator": "and"
+      }
+    }
+  }
+}
+
+GET blogs_fixed4/_search?size=0
+{
+  "query": {
+    "match_phrase": {
+      "content": "open source"
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "_source": ["title","publish_date"],
+  "from": 10, 
+  "size": 5,
+  "sort": [
+    {
+      "publish_date": {
+        "order": "desc"
+      }
+    }
+  ],
+  "query": {
+    "match_phrase": {
+      "content": "open source"
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "_source": ["title","publish_date"],
+  "query": {
+    "range": {
+      "publish_date": {
+        "gte": "2018-01-01",
+        "lt": "2019-01-01"
+      }
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "query": {
+    "match": {
+      "authors.full_name": "Shay Banon"
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "meetups",
+            "fields": ["content","title"]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "range": {
+            "publish_date": {
+              "gte": "now/d-2y"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "content": "ingestion"
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "match": {
+            "content": "logstash"
+          }
+        }
+      ],
+      "filter": [
+        {
+          "match": {
+            "locale":"fr-fr"
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "publish_date": {
+              "gte": "2021-04-01",
+              "lte": "2021-04-01||+1w"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+PUT _scripts/weekly_blogs1
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "publish_date": {
+                  "gte": "{{start_date}}",
+                  "lt": "{{start_date}}||+1w"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+
+GET blogs_fixed4/_search/template
+{
+  "id": "weekly_blogs1",
+  "params": {
+    "start_date": "2021-04-01"
+  }
+}
+
+PUT _scripts/top_blogs
+{
+  "script": {
+    "lang": "mustache",
+    "source": {
+      "query": {
+        "bool": {
+          "filter": [
+            {
+              "range": {
+                "publish_date": {
+                  "gte": "{{start_date}}",
+                  "lt": "{{end_date}}{{^end_date}}{{start_date}}||+1w{{/end_date}}"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+GET blogs_fixed4/_search/template
+{
+  "id": "top_blogs",
+  "params": {
+    "start_date": "2021-04-01",
+    "end_date": "2021-05-01"
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "query": {
+    "match": {
+      "title": "security"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "title": {}
+    },
+    "pre_tags": ["<strong>"],
+    "post_tags": ["</strong>"]
+  }
+}
+
+POST blogs_fixed2/_async_search
+{
+  "query": {
+    "function_score": {
+      "query": {
+        "match": {
+          "content": "to the blog and your query: you are both enjoying being on Elasticsearch "
+        }
+      },
+      "script_score": {
+        "script": """
+        int m = 30; 
+        double u = 1.0;
+        for (int x = 0; x < m; ++x) 
+          for (int y = 0; y < 10000; ++y) 
+            u=Math.log(y);
+        return u
+        """
+      }
+    }
+  }
+}
+
+DELETE _async_search/FkhyNnIyWGVsUlZTMlJrMkZNakpXdlEdTjMtMnVpTGpTVWk3bVF5YndrN0tVUToxMDk2NDE
+GET blogs_fixed4/_count
+
+
+POST _reindex
+{
+  "source": {
+    "remote": {
+      "host": "https://node5:9204",
+      "username": "training",
+      "password": "nonprodpwd"
+    },
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "blogs_fixed4"
+  }
+}
+
+POST blogs_fixed4/_delete_by_query
+{
+  "query":{
+    "match":{
+      "tags.use_case":"uptime monitoring"
+    }
+  }
+}
+
+POST unim_mm/_doc
+{
+  "@timestamp": "2021-03-21T19:25:05.000-06:00",
+  "bytes_sent": 26774,
+  "content_type": "text/html; charset=utf-8",
+  "geoip_location_lat": 39.1029,
+  "geoip_location_lon": -94.5713,
+  "is_https": true,
+  "request": "/blog/introducing-elastic-endpoint-security",
+  "response": 200,
+  "runtime_ms": 191,
+  "user_Agent": "Mozilla/5.0 (compatible; MJ12bot/v1.4.8; http://mj12bot.com/)",
+  "verb": "GET"
+}
+
+GET _ingest/pipeline/web_traffic_pipeline5/_simulate
+{
+  "docs": [
+    {
+      "_index": "index",
+      "_id": "id",
+      "_source": {
+        "@timestamp": "2021-03-21T19:25:05.000-06:00",
+        "bytes_sent": 26774,
+        "content_type": "text/html; charset=utf-8",
+        "geoip_location_lat": 39.1029,
+        "geoip_location_lon": -94.5713,
+        "is_https": true,
+        "request": "/blog/introducing-elastic-endpoint-security",
+        "response": 200,
+        "runtime_ms": 191,
+        "user_Agent": "Mozilla/5.0 (compatible; MJ12bot/v1.4.8; http://mj12bot.com/)",
+        "verb": "GET"
+      }
+    }
+  ]
+}
+
+PUT web_traffic1
+{
+  "settings": {
+    "default_pipeline": "web_traffic_pipeline5"
+  },
+  "mappings": {
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
+      "geo": {
+        "properties": {
+          "location": {
+            "type": "geo_point"
+          }
+        }
+      },
+      "http": {
+        "properties": {
+          "request": {
+            "properties": {
+              "method": {
+                "type": "keyword"
+              }
+            }
+          },
+          "response": {
+            "properties": {
+              "status_code": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
+      },
+      "runtime_ms": {
+        "type": "long"
+      },
+      "url": {
+        "properties": {
+          "original": {
+            "type": "keyword",
+            "fields": {
+              "text": {
+                "type": "text"
+              }
+            }
+          }
+        }
+      },
+      "user_agent": {
+        "properties": {
+          "device": {
+            "properties": {
+              "name": {
+                "type": "keyword"
+              }
+            }
+          },
+          "name": {
+            "type": "keyword"
+          },
+          "original": {
+            "type": "keyword",
+            "fields": {
+              "text": {
+                "type": "text"
+              }
+            }
+          },
+          "version": {
+            "type": "keyword"
+          }
+        }
+      }
+    }
+  }
+}
+
+GET web_traffic1/_search
+
+POST web_traffic1/_delete_by_query
+{
+  "query":{
+    "match_all":{}
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "size": 0, 
+  "aggs": {
+    "NAME": {
+      "terms": {
+        "field": "category",
+        "size": 10
+      }
+    }
+  }
+}
+
+POST categories/_bulk
+{"create":{}}
+{"uid": "blt26ff0a1ade01f60d","title":"User Stories"}
+{"create":{}}
+{"uid": "bltfaae4466058cc7d6","title": "Releases"}
+{"create":{}}
+{"uid": "bltc253e0851420b088","title": "Culture"}
+{"create":{}}
+{"uid": "blt0c9f31df4f2a7a2b","title": "News"}
+{"create":{}}
+{"uid": "blt1d90b8e0edce3ea9","title": "Engineering"}
+
+PUT _enrich/policy/categories_policy1
+{
+  "match": {
+    "indices": "categories",
+    "match_field": "uid",
+    "enrich_fields": ["title"]
+  }
+}
+
+PUT _enrich/policy/categories_policy1/_execute
+
+PUT blogs_fixed4/_mapping
+{
+  "properties":{
+    "category_title":{
+      "properties":{
+        "title": {
+          "type":"keyword"
+        },
+        "uid":{
+          "type":"keyword"
+        }
+      }
+    }
+  }
+}
+POST blogs_fixed4/_update_by_query?pipeline=categories_pipeline1&wait_for_completion=false
+
+GET blogs_fixed4/_search
+{
+  "size": 0,
+  "aggs": {
+    "blogs_by_category": {
+      "terms": {
+        "field": "category_title.title",
+        "size": 10
+      }
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "script": {
+            "script": """
+            return true;
+            """
+          }
+        }
+      ]
+    }
+  }
+}
+
+PUT _enrich/policy/categories_policies
+{
+  "match": {
+    "indices": "categories",
+    "match_field": "uid",
+    "enrich_fields": ["title"]
+  }
+}
+
+POST _enrich/policy/categories_policies/_execute
+
+PUT _ingest/pipeline/categories_pipeline3
+{
+  "processors": [
+    {
+      "enrich": {
+        "policy_name": "categories_policy",
+        "field": "category",
+        "target_field": "category_title",
+        "ignore_missing": true
+      }
+    },
+    {
+      "remove": {
+        "field": "category",
+        "ignore_missing": true
+      }
+    }
+  ]
+}
+
+PUT blogs_fixed4/_mapping
+{
+  "properties":{
+    "category_title": {
+      "properties": {
+        "title":{
+          "type":"keyword"
+        },
+        "uid":{
+          "type":"keyword"
+        }
+      }
+    }
+  }
+}
+
+POST blogs_fixed4/_update_by_query?pipeline=categories_pipeline3&wait_for_completion=false
+
+GET blogs_fixed2/_search
+{
+  "size": 0,
+  "aggs": {
+    "blogs_by_category": {
+      "terms": {
+        "field": "category_title.title",
+        "size": 10
+      }
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{"query":{"bool":{"filter":[{"script":{"script":"\n            return true;\n            \n            "}}]}}}
+
+GET blogs_fixed4/_search
+{
+  "_source": "authors", 
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "script": {
+            "script": """
+            def authors = doc["authors.last_name"];
+            for (int i = 0; i < authors.size(); i++) {
+              if (authors.get(i).startsWith("A")) {
+                return true;
+              }
+            }
+            return false
+            """
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "script": {
+            "script": 
+              """return doc["tags.product"].size() <=3"""
+          }
+        }
+      ]
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "size": 0,
+  "runtime_mappings": {
+    "day_of_week": {
+      "type": "keyword",
+      "script": {
+        "source": "emit(doc['publish_date'].value.dayOfWeekEnum.getDisplayName(TextStyle.FULL, Locale.ROOT))"
+      }
+    }
+  },
+  "aggs": {
+    "top_days": {
+      "terms": {
+        "field": "day_of_week"
+      }
+    }
+  }
+}
+GET blogs_fixed4/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_uids": {
+      "terms": {
+        "field": "authors.uid"
+      }
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "size": 0,
+  "runtime_mappings": {
+    "authors.uid": {
+      "type": "keyword"
+    }
+  },
+  "aggs": {
+    "top_uids": {
+      "terms": {
+        "field": "authors.uid"
+      }
+    }
+  }
+}
+
+GET blogs_fixed4/_search
+{
+  "size": 0,
+  "runtime_mappings": {
+    "authors.full_name": {
+      "type": "keyword"
+    }
+  },
+  "query": {
+    "match": {
+      "authors.full_name": "Jongmin Kim"
+    }
+  }
+}
+
+GET web_traffic/_search?size=0
+{
+  "aggs": {
+    "uu": {
+      "percentile_ranks": {
+        "field": "runtime_ms",
+        "values": [
+          500000
+        ]
+      }
+    }
+  }
+}
+
+GET web_traffic/_search?size=0
+{
+  "aggs": {
+    "web": {
+      "terms": {
+        "field": "http.response.status_code",
+        "order": {
+          "_key": "asc"
+        }
+      }
+    }
+  }
+}
+
+GET web_traffic/_search?size=0
+{
+  "aggs": {
+    "b_s": {
+      "histogram": {
+        "field": "bytes_sent",
+        "interval": 10000,
+        "min_doc_count": 1000
+      }
+    }
+  }
+}
+
+GET web_traffic/_search?size=0
+{
+  "aggs": {
+    "logs_by_week": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "second"
+      }
+    }
+  }
+}
+
+GET web_traffic/_search?size=0
+{
+  "query": {
+    "term": {
+      "http.response.status_code": {
+        "value": "404"
+      }
+    }
+  },
+  "aggs": {
+    "logs_by_week": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "week"
+      }
+    }
+  }
+}
+
+GET web_traffic/_search?size=0
+{
+  "aggs": {
+    "avg": {
+      "stats": {
+        "field": "runtime_ms"
+      }
+    },
+    "median":{
+      "percentiles": {
+        "field": "runtime_ms",
+        "percents": [
+          50
+        ]
+      }
+    }
+  }
+}
+
+GET web_traffic/_search?size=0
+{
+  "aggs": {
+    "response_terms": {
+      "terms": {
+        "field": "http.response.status_code",
+        "order": {
+          "median.50": "asc"
+        }
+      },
+      "aggs": {
+        "median": {
+          "percentiles": {
+            "field": "runtime_ms",
+            "percents": [
+              50
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+
+GET web_traffic/_search?size=0
+{
+  "aggs": {
+    "top_5": {
+      "terms": {
+        "field": "user_agent.os.name.keyword",
+        "size": 5
+      },
+      "aggs": {
+        "top_3": {
+          "terms": {
+            "field": "url.original",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+
+
+
+
