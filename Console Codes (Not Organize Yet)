@@ -939,9 +939,347 @@ GET web_traffic/_search?size=0
   }
 }
 
+GET blogs_fixed4/_search
+{
+  "query": {
+    "match": {
+      "content": "elasticsearch siem"
+    }
+  },
+  "aggs": {
+    "top_five": {
+      "terms": {
+        "field": "category",
+        "size": 5
+      },
+      "aggs": {
+        "top_three": {
+          "top_hits": {
+            "size": 3,
+            "_source": ["title"]
+          }
+        }
+      }
+    }
+  }
+}
+
+GET web_traffic/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_OS": {
+      "terms": {
+        "field": "user_agent.os.name.keyword",
+        "size": 5
+      },
+      "aggs": {
+        "top_urls": {
+          "significant_terms": {
+            "field": "url.original",
+            "size": 3
+          }
+        }
+      }
+    }
+  }
+}
+
+GET web_traffic/_search
+{
+  "size": 0, 
+  "aggs": {
+    "log_by_hour": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "calendar_interval": "hour"
+      },
+      "aggs": {
+        "byte": {
+          "sum": {
+            "field": "bytes_sent"
+          }
+        },
+        "mov":{
+          "moving_fn": {
+            "buckets_path": "byte",
+            "window": 5,
+            "script":"MovingFunctions.min(values)"
+          }
+        }
+      }
+    }
+  }
+}
+
+GET web_traffic/_search
+{
+  "size": 0, 
+  "aggs": {
+    "MAM": {
+      "terms": {
+        "field": "url.original"
+      }
+    }
+  }
+}
+
+GET _cat/nodes?v
+
+GET _cat/indices?v
+
+GET _cat/shards/web_traffic?v
+
+PUT test2
+{
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 3
+  }
+}
+
+GET _cat/shards/test2?v
+
+PUT test2/_settings
+{
+  "number_of_replicas": 2
+}
+GET _cat/shards/test2?v&s=shard,prirep
+
+GET _cat/shards/test2?v&s=node,shard
 
 
+PUT temp2
+{
+  "settings": {
+    "number_of_shards": 4,
+    "number_of_replicas": 0,
+    "refresh_interval": -1
+  }
+}
+
+GET _cat/shards/temp2?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+GET _cat/shards/temp2?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+GET _cat/nodes?v
+
+POST _reindex
+{
+  "source": {
+    "index": "web_traffic",
+    "query": {
+      "match": {
+        "user_agent.os.name.keyword": "Android"
+      }
+    }
+  },
+  "dest": {
+    "index": "temp2"
+  }
+}
+
+GET temp2/_count
+PUT temp2/_settings
+{
+  "index.refresh_interval": "1s"
+}
+
+PUT temp2/_settings
+{
+  "index.auto_expand_replicas": "0-all"
+}
+GET _cat/shards/temp2?v&h=index,shard,prirep,state,node&s=index,shard,prirep
 
 
+GET _cat/shards/temp2?v&h=index,shard,prirep,state,node&s=index,shard,prirep
+
+DELETE temp2
+
+PUT blogs_tmp1
+{
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 0
+  }
+}
+
+POST _reindex
+{
+  "source": {
+    "index": "blogs"
+  },
+  "dest": {
+    "index": "blogs_tmp1"
+  }
+}
+
+GET _cat/shards/blogs_tmp1?v
+
+GET blogs_tmp1/_search
+{
+  "size": 3, 
+  "_source": ["title"], 
+  "query": {
+    "match": {
+      "content": "Agent"
+    }
+  }
+}
 
 
+POST _index_template/_simulate_index/my-metrics-test1
+
+PUT my-metrics-000008
+{
+  "aliases": {
+    "my-metrics": {
+      "is_write_index": true
+    }
+  }
+}
+
+GET my-metrics-000008
+
+
+POST my-metrics/_rollover
+{
+  "conditions": {
+    "max_age": "2s"
+  }
+}
+
+POST my_metrics-service.status-dev/_doc
+{
+  "@timestamp": "2021-07-04",
+  "status": "UP",
+  "message": "Service is running."
+}
+
+GET my_metrics-service.status-dev/_mapping
+
+POST my_metrics-service.status-dev/_rollover/
+
+POST my_metrics-service.status-dev/_doc
+{
+  "@timestamp": "2021-07-05",
+  "status": "UP",
+  "message": "Service is running.",
+  "data_stream.type": "my_metrics"
+}
+
+GET my_metrics-service.status-dev/_mapping
+
+POST my_metrics-service.status-dev/_doc
+{
+  "@timestamp": "2021-07-06",
+  "status": "UP",
+  "message": "Service is running."
+}
+
+GET my_metrics-service.status-dev/_search
+{
+  "query": {
+    "match": {
+      "data_stream.type": "my_metrics"
+    }
+  }
+}
+
+POST _data_stream/_migrate/my-metrics
+
+## Set the poll interval for lifecycle policies to 30 second
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "indices.lifecycle.poll_interval": "30s"
+  }
+}
+
+## delete the my_metrics-service.status-dev data stream from the previous lab
+
+DELETE _data_stream/my_metrics-service.status-dev
+
+POST my_metrics-service.status-dev/_doc
+{
+  "@timestamp": "2021-07-04",
+  "status": "UP",
+  "message": "Service is running."
+}
+
+GET my_metrics-service.status-dev/_settings
+
+GET my_metrics-service.status-dev/_ilm/explain
+
+GET blogs,cluster2:blogs/_search
+{
+  "query": {
+    "match_phrase": {
+      "content": "kibana query language"
+    }
+  }
+}
+
+PUT /replicated_blogs1/_ccr/follow
+{
+  "remote_cluster": "cluster2", 
+  "leader_index": "blogs"
+}
+
+GET replicated_blogs1/_search
+
+PUT blogs/_settings
+{
+  "number_of_replicas": 2
+}
+
+
+GET _cat/health
+
+GET _cat/shards
+
+DELETE blogs_tmp1
+
+GET blogs_fixed4/_search
+{
+  "profile": true,
+  "_source": [
+    ""
+  ],
+  "query": {
+    "function_score": {
+      "query": {
+        "match_all": {}
+      },
+      "script_score": {
+        "script": """
+          void slow() {
+            for (int x = 0; x < 10000; ++x) 
+              Math.log(x);
+          } 
+
+          for (int x = 0; x < 3; ++x) 
+            slow();
+        """
+      }
+    }
+  }
+}
+
+
+GET blogs_fixed4/_search
+{
+  "_source": [
+    "title"
+  ],
+  "query": {
+    "multi_match": {
+      "type": "most_fields", 
+      "query": "boosting",
+      "fields": [
+        "content",
+        "title^1.4"
+      ]
+    }
+  }
+}
